@@ -3,7 +3,7 @@
 // ==============================================
 
 // >>> CHANGE THIS to your deployed Cloudflare Worker URL <<<
-const WORKER_URL = 'https://darryls-castle-scraper.YOUR-SUBDOMAIN.workers.dev';
+const WORKER_URL = 'https://darryls-castle-scraper.sean-gillespie-ny.workers.dev/';
 
 // Market defaults — keyed by select dropdown value
 const MARKETS = {
