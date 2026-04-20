@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Darryl's Castle — Property Investment Calculator</title>
+  <meta name="description" content="A man's home is his castle (and his tax shelter). Tax-strategy weighted property analysis for Sean &amp; Jessi." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bree+Serif&amp;family=DM+Sans:wght@400;500;700&amp;family=Space+Mono:wght@400;700&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="grain"></div>
+
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="hero-badge">3 Highview Crescent · Coolaroo · Est. 1997</div>
+      <h1 class="hero-title">Darryl's Castle</h1>
+      <p class="hero-tag">"A man's home is his castle. And if it's the right one, it's his tax shelter too."</p>
+      <p class="hero-byline">Property investment calculator · 2027 IPO year · Tax-strategy weighted scoring</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- URL INPUT -->
+    <section class="panel panel-url">
+      <div class="panel-header">
+        <span class="panel-num">01</span>
+        <h2 class="panel-title">Paste a listing</h2>
+        <span class="panel-sub">Darryl'll do the legwork — Zillow, Redfin, Realtor.com</span>
+      </div>
+      <div class="url-row">
+        <input type="url" id="listingUrl" placeholder="https://www.zillow.com/homedetails/..." class="url-input" />
+        <button id="fetchBtn" class="btn btn-primary">Fetch listing</button>
+      </div>
+      <div id="fetchStatus" class="fetch-status"></div>
+    </section>
+
+    <!-- PROPERTY DETAILS -->
+    <section class="panel">
+      <div class="panel-header">
+        <span class="panel-num">02</span>
+        <h2 class="panel-title">The property</h2>
+        <span class="panel-sub">Auto-filled where possible · override anything</span>
+      </div>
+
+      <div class="grid-2">
+        <div>
+          <label class="lbl">Address / nickname</label>
+          <input type="text" id="address" placeholder="e.g. 12345 Sunny Ln, Yucca Valley CA" class="inp" />
+
+          <label class="lbl">Market <span class="hint">drives smart defaults</span></label>
+          <select id="market" class="inp">
+            <option value="palm-springs">Palm Springs</option>
+            <option value="yucca-valley" selected>Yucca Valley / Joshua Tree</option>
+            <option value="borrego">Borrego Springs</option>
+            <option value="cathedral-city">Cathedral City</option>
+            <option value="palm-desert">Palm Desert / La Quinta</option>
+            <option value="big-bear">Big Bear</option>
+            <option value="idyllwild">Idyllwild</option>
+            <option value="other-desert">Other desert (CA)</option>
+            <option value="other-ca">Other California</option>
+          </select>
+
+          <label class="lbl">Purchase price ($)</label>
+          <input type="number" id="price" value="450000" class="inp" />
+
+          <label class="lbl">Annual property tax ($)</label>
+          <input type="number" id="propTax" value="5400" class="inp" />
+          <p class="hint-line">Defaults to 1.2% of price (CA Prop 13 baseline)</p>
+
+          <label class="lbl">Land allocation <span id="landVal" class="slider-out">20%</span></label>
+          <input type="range" id="landPct" min="5" max="50" value="20" step="1" class="rng" />
+          <p class="hint-line">Desert SFH typical: 15–22% · Mountain: 30–40% · Coastal: 40%+</p>
+        </div>
+
+        <div>
+          <label class="lbl">Down payment <span id="downVal" class="slider-out">25%</span></label>
+          <input type="range" id="downPct" min="20" max="40" value="25" step="5" class="rng" />
+
+          <label class="lbl">Investment mortgage rate (%)</label>
+          <input type="number" id="mortRate" value="7.0" step="0.1" class="inp" />
+
+          <label class="lbl">Cost segregation reclassification <span id="csVal" class="slider-out">25%</span></label>
+          <input type="range" id="costSeg" min="10" max="40" value="25" step="1" class="rng" />
+          <p class="hint-line">SFH typical: 20–35% · Condo: 15–22%</p>
+
+          <label class="lbl">Bonus depreciation rate <span id="bdVal" class="slider-out">100%</span></label>
+          <input type="range" id="bonusDep" min="0" max="100" value="100" step="20" class="rng" />
+          <p class="hint-line">100% under OBBBA (Jul 2025) for property acquired after Jan 19, 2025</p>
+
+          <label class="lbl">Cost-seg study cost ($)</label>
+          <input type="number" id="csCost" value="5000" class="inp" />
+        </div>
+      </div>
+    </section>
+
+    <!-- RENTAL -->
+    <section class="panel">
+      <div class="panel-header">
+        <span class="panel-num">03</span>
+        <h2 class="panel-title">The rental play</h2>
+        <span class="panel-sub">Auto-estimated from market &amp; price · adjust as you like</span>
+      </div>
+
+      <div class="rental-toggle">
+        <button class="toggle-btn active" data-mode="str" id="btnStr">Short-term rental (STR)</button>
+        <button class="toggle-btn" data-mode="ltr" id="btnLtr">Long-term rental (LTR)</button>
+      </div>
+
+      <div class="grid-3">
+        <div>
+          <label class="lbl">Gross annual rental ($)</label>
+          <input type="number" id="rental" value="65000" class="inp" />
+          <p class="hint-line" id="rentHint">STR estimate based on market &amp; price</p>
+        </div>
+        <div>
+          <label class="lbl">Vacancy / off-season <span id="vacVal" class="slider-out">15%</span></label>
+          <input type="range" id="vacancy" min="0" max="40" value="15" step="1" class="rng" />
+        </div>
+        <div>
+          <label class="lbl">Operating expense ratio <span id="expVal" class="slider-out">35%</span></label>
+          <input type="range" id="expRatio" min="15" max="60" value="35" step="1" class="rng" />
+          <p class="hint-line" id="expHint">STR: 30–40% (cleaning, platform fees, mgmt)</p>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div>
+          <label class="lbl">Annual rental growth <span id="rgVal" class="slider-out">3%</span></label>
+          <input type="range" id="rentGrowth" min="1" max="6" value="3" step="0.5" class="rng" />
+        </div>
+        <div>
+          <label class="lbl">Annual appreciation <span id="apVal" class="slider-out">4%</span></label>
+          <input type="range" id="appRate" min="1" max="8" value="4" step="0.5" class="rng" />
+        </div>
+        <div>
+          <label class="lbl">Insurance + utilities (yr) <span class="hint">extra ops</span></label>
+          <input type="number" id="extraOps" value="4800" class="inp" />
+        </div>
+      </div>
+    </section>
+
+    <!-- INCOME / TAX -->
+    <section class="panel">
+      <div class="panel-header">
+        <span class="panel-num">04</span>
+        <h2 class="panel-title">2027 income &amp; tax setup</h2>
+        <span class="panel-sub">IPO year · Jessi's REPS active · second property strategy</span>
+      </div>
+
+      <div class="grid-2">
+        <div>
+          <label class="lbl">W2 income ($)</label>
+          <input type="number" id="w2" value="250000" class="inp" />
+
+          <label class="lbl">IPO / equity proceeds — taxable in 2027 ($)</label>
+          <input type="number" id="ipo" value="500000" class="inp" />
+
+          <label class="lbl">Federal marginal rate (%)</label>
+          <input type="number" id="fedRate" value="37" step="0.5" class="inp" />
+        </div>
+        <div>
+          <label class="lbl">CA state rate (%)</label>
+          <input type="number" id="caRate" value="13.3" step="0.1" class="inp" />
+
+          <label class="lbl">REPS status (Jessi)</label>
+          <select id="reps" class="inp">
+            <option value="1" selected>Active — losses offset ordinary income</option>
+            <option value="0">Inactive — passive losses suspended</option>
+          </select>
+
+          <label class="lbl">Existing PS home strategy</label>
+          <select id="psStrategy" class="inp">
+            <option value="primary">Keep as primary residence</option>
+            <option value="rotate" selected>Rotate use between both properties</option>
+            <option value="rental">Convert PS to full-time rental</option>
+          </select>
+          <p class="hint-line">Affects personal-use day allocation under §280A</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- LEGAL / RESTRICTIONS PANEL -->
+    <section id="legalPanel" class="panel panel-flag"></section>
+
+    <!-- VERDICT -->
+    <section id="verdictPanel"></section>
+
+    <!-- METRICS GRID -->
+    <section id="metricsPanel"></section>
+
+    <!-- CHART -->
+    <section class="panel">
+      <div class="panel-header">
+        <span class="panel-num">05</span>
+        <h2 class="panel-title">Cost vs. wealth — 30-year breakeven</h2>
+        <span class="panel-sub">When does this property pay for itself?</span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="breakevenChart" role="img" aria-label="Breakeven chart showing cumulative cost vs cumulative wealth over 30 years"></canvas>
+      </div>
+      <div id="breakevenSummary" class="breakeven-summary"></div>
+    </section>
+
+    <!-- LONG-TERM TABLE -->
+    <section id="projectionPanel"></section>
+
+    <!-- DEPRECIATION DETAIL -->
+    <section id="depPanel"></section>
+
+    <!-- ACTIONS -->
+    <section class="panel panel-actions">
+      <button id="saveBtn" class="btn btn-primary">Save to property history</button>
+      <button id="exportBtn" class="btn btn-ghost">Export history (JSON)</button>
+      <input type="file" id="importInput" accept=".json" style="display:none" />
+      <button id="importBtn" class="btn btn-ghost">Import history</button>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="panel">
+      <div class="panel-header">
+        <span class="panel-num">06</span>
+        <h2 class="panel-title">The pool room</h2>
+        <span class="panel-sub">Properties you've analysed · trends · trophies</span>
+      </div>
+      <div id="historyTrend" class="history-trend"></div>
+      <div id="historyList" class="history-list"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p class="footer-quote">"Tell him he's dreamin'."</p>
+    <p class="footer-meta">Built for Sean &amp; Jessi · IPO 2027 · A Stella production</p>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
