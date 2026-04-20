@@ -578,19 +578,27 @@ async function fetchListing() {
     status.textContent = 'Worker not configured yet — see README for deployment. Manual entry still works.';
     return;
   }
+  // Strip trailing slash to avoid double-slash in fetch
+  const base = WORKER_URL.replace(/\/$/, '');
   status.className = 'fetch-status';
-  status.textContent = 'Darryl\'s digging...';
+  status.textContent = "Darryl's digging...";
   try {
-    const r = await fetch(`${WORKER_URL}/?url=${encodeURIComponent(url)}`);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const r = await fetch(`${base}/?url=${encodeURIComponent(url)}`);
     const data = await r.json();
-    if (!data.ok) throw new Error(data.error || 'Unknown error');
+    if (!data.ok) {
+      // Show error + suggestion if worker provided one
+      const suggestion = data.suggestion ? ` · ${data.suggestion}` : '';
+      status.className = 'fetch-status error';
+      status.textContent = `${data.error || 'Couldn\'t fetch'}${suggestion}`;
+      return;
+    }
     applyScrapedData(data.property);
     status.className = 'fetch-status success';
-    status.textContent = `Got it — ${data.source}. Filled what I could; verify the rest.`;
+    const note = data.note ? ` · ${data.note}` : '';
+    status.textContent = `Got it from ${data.source}. Filled what I could; verify the rest.${note}`;
   } catch (e) {
     status.className = 'fetch-status error';
-    status.textContent = `Couldn't fetch (${e.message}). Fill it in manually — this happens with anti-bot listings.`;
+    status.textContent = `Network error (${e.message}). Fill it in manually.`;
   }
 }
 
