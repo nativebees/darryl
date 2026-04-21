@@ -29,6 +29,7 @@ function readState() {
     costSegPct: +document.getElementById('costSeg').value / 100,
     bonusDepRate: +document.getElementById('bonusDep').value / 100,
     csCost: +document.getElementById('csCost').value || 0,
+    closingCosts: +document.getElementById('closingCosts').value || 0,
     rental: +document.getElementById('rental').value || 0,
     vacancy: +document.getElementById('vacancy').value / 100,
     expRatio: +document.getElementById('expRatio').value / 100,
@@ -70,16 +71,20 @@ function calculate(s) {
   const totalInc = s.w2 + s.ipo;
   const improvements = s.price * (1 - s.landPct);
   const down = s.price * s.downPct;
+  const totalInvestment = down + s.closingCosts;  // Kevin uses Down + Closing as ROI denominator
   const loan = s.price - down;
   const shortL = improvements * s.costSegPct;
   const longL = improvements * (1 - s.costSegPct);
 
-  // Year 1 federal depreciation
+  // Year 1 federal depreciation (Aggressive: cost seg + bonus)
   const bonus = shortL * s.bonusDepRate;
   const regShortFed = shortL * (1 - s.bonusDepRate) * 0.20;
   const regLong = longL / 27.5;
   const depFed = bonus + regShortFed + regLong;
-  const depCA = shortL * 0.20 + regLong; // CA no bonus conformity
+  const depCA = shortL * 0.20 + regLong;
+
+  // Year 1 CONSERVATIVE depreciation (Kevin's view: straight-line 27.5 only)
+  const depConservative = improvements / 27.5;
 
   // Rental
   const effRental = s.rental * (1 - s.vacancy);
@@ -90,7 +95,7 @@ function calculate(s) {
   // Mortgage Y1
   const y1 = amortizeYear(loan, s.mortRate);
 
-  // Tax
+  // Tax — AGGRESSIVE (current strategy)
   const preDep = noi - y1.interest;
   const taxableFed = preDep - depFed;
   const taxableCA = preDep - depCA;
@@ -100,6 +105,14 @@ function calculate(s) {
     if (taxableCA < 0) caSav = Math.min(Math.abs(taxableCA), totalInc) * s.caRate;
   }
   const totalTax = fedSav + caSav;
+
+  // Tax — CONSERVATIVE (Kevin's view, straight-line only)
+  const taxableConservative = preDep - depConservative;
+  let totalTaxConservative = 0;
+  if (s.reps && taxableConservative < 0) {
+    totalTaxConservative = Math.min(Math.abs(taxableConservative), totalInc) * (s.fedRate + s.caRate);
+  }
+
   const cashFlow = noi - y1.annualPay;
   const net1 = cashFlow + totalTax - s.csCost;
   const appGain = s.price * s.appRate;
@@ -107,13 +120,49 @@ function calculate(s) {
   const cocROI = (cashFlow + totalTax) / down;
   const totalROI1 = (cashFlow + totalTax + appGain) / down;
 
+  // KEVIN'S METRICS — universal real estate vocabulary
+  const annualizedNOI = noi;
+  const capRate = s.price > 0 ? (annualizedNOI / s.price) : 0;
+  const dscr = y1.annualPay > 0 ? (annualizedNOI / y1.annualPay) : 0;
+
   // Long-term projections
   const projection = projectLongTerm(s, depFed, depCA, shortL, longL, loan, totalInc);
   const y5 = projection.years.find(y => y.year === 5);
   const y10 = projection.years.find(y => y.year === 10);
   const y30 = projection.years.find(y => y.year === 30);
 
-  // Recapture at sale (estimated at year 30 or earlier exit)
+  // KEVIN'S 4-SOURCE RETURN STACK — years 1-5
+  const returnStack = [];
+  let prevValue = s.price;
+  let prevLoanBal = loan;
+  for (let y = 1; y <= 5; y++) {
+    const yr = projection.years[y - 1];
+    const annualPrincipal = prevLoanBal - yr.loanBal;
+    const annualAppreciation = yr.propValue - prevValue;
+    const cf = yr.cashFlow;
+    const tx = yr.taxSav;
+    const total = cf + annualPrincipal + tx + annualAppreciation;
+    returnStack.push({
+      year: y,
+      cashFlow: cf,
+      cashFlowROI: cf / totalInvestment,
+      debtPaydown: annualPrincipal,
+      debtPaydownROI: annualPrincipal / totalInvestment,
+      taxSavings: tx,
+      taxSavingsROI: tx / totalInvestment,
+      appreciation: annualAppreciation,
+      appreciationROI: annualAppreciation / totalInvestment,
+      total,
+      totalROI: total / totalInvestment
+    });
+    prevValue = yr.propValue;
+    prevLoanBal = yr.loanBal;
+  }
+  // Conservative 5-year tax savings (for comparison)
+  const tax5Aggressive = returnStack.reduce((sum, y) => sum + y.taxSavings, 0);
+  const tax5Conservative = totalTaxConservative * (1 + 0.65 * 4);  // Y1 full + 4 years × 0.65 adj (matching projection logic)
+
+  // Recapture at sale
   const totalDepTaken30 = depFed + (longL / 27.5) * 29;
   const recaptureLiability = Math.min(totalDepTaken30, improvements) * 0.25;
 
@@ -124,12 +173,15 @@ function calculate(s) {
   });
 
   return {
-    improvements, down, loan, shortL, longL,
-    bonus, regShortFed, regLong, depFed, depCA,
+    improvements, down, totalInvestment, loan, shortL, longL,
+    bonus, regShortFed, regLong, depFed, depCA, depConservative,
     effRental, ops, noi, y1, preDep,
-    fedSav, caSav, totalTax, cashFlow, net1, appGain, wealth1,
+    fedSav, caSav, totalTax, totalTaxConservative,
+    cashFlow, net1, appGain, wealth1,
     cocROI, totalROI1,
+    capRate, dscr,
     projection, y5, y10, y30,
+    returnStack, tax5Aggressive, tax5Conservative,
     recaptureLiability,
     score: scoreData
   };
@@ -299,6 +351,7 @@ function render(s, r) {
   renderMetrics(r);
   renderChart(s, r.projection);
   renderProjection(s, r);
+  renderReturnStack(s, r);
   renderDepreciation(s, r);
 }
 
@@ -351,6 +404,9 @@ function renderVerdict(r) {
 
 function renderMetrics(r) {
   const panel = document.getElementById('metricsPanel');
+  const dscrOk = r.dscr >= 1.25;
+  const dscrClass = r.dscr >= 1.25 ? 'pos' : (r.dscr >= 1.0 ? 'warn' : 'neg');
+  const capClass = r.capRate >= 0.07 ? 'pos' : (r.capRate >= 0.04 ? 'warn' : 'neg');
   panel.innerHTML = `
     <div class="metrics">
       <div class="metric">
@@ -372,6 +428,16 @@ function renderMetrics(r) {
         <p class="metric-label">Year 1 total ROI</p>
         <p class="metric-value ${r.totalROI1 > 0.1 ? 'pos' : r.totalROI1 > 0 ? 'warn' : 'neg'}">${fPct(r.totalROI1)}</p>
         <p class="metric-sub">Incl. appreciation</p>
+      </div>
+      <div class="metric">
+        <p class="metric-label">Cap Rate <span class="hint" style="margin-left:0">Kevin's view</span></p>
+        <p class="metric-value ${capClass}">${fPct(r.capRate, 2)}</p>
+        <p class="metric-sub">NOI ÷ price · 7%+ strong, 4%+ ok</p>
+      </div>
+      <div class="metric">
+        <p class="metric-label">DSCR <span class="hint" style="margin-left:0">Loan test</span></p>
+        <p class="metric-value ${dscrClass}">${r.dscr.toFixed(2)}x</p>
+        <p class="metric-sub">${dscrOk ? '✓ Qualifies for commercial loan' : '✗ Below 1.25 lender threshold'}</p>
       </div>
     </div>
   `;
@@ -525,6 +591,122 @@ function renderProjection(s, r) {
       </table>
       <div style="margin-top: 14px; padding: 12px 14px; background: var(--warn-bg); border-left: 3px solid var(--warn); font-size: 12px; color: var(--ink-2); line-height: 1.5;">
         <strong>Recapture alert:</strong> ~${f$(r.recaptureLiability)} of accumulated depreciation will be subject to §1250 unrecaptured gain tax (25% federal) at sale. A 1031 exchange defers this indefinitely. The savings now are real — the recapture later is a planning problem, not a deal-killer.
+      </div>
+    </div>
+  `;
+}
+
+function renderReturnStack(s, r) {
+  // Build year rows
+  const rows = r.returnStack.map(y => {
+    const cfPct = (y.cashFlowROI * 100).toFixed(1);
+    const debtPct = (y.debtPaydownROI * 100).toFixed(1);
+    const taxPct = (y.taxSavingsROI * 100).toFixed(1);
+    const appPct = (y.appreciationROI * 100).toFixed(1);
+    const totalPct = (y.totalROI * 100).toFixed(1);
+    return `
+      <tr>
+        <td>Year ${y.year}</td>
+        <td class="${y.cashFlow < 0 ? 'tdv neg' : 'tdv'}">${fK(y.cashFlow)} <span class="pct-inline">${cfPct}%</span></td>
+        <td class="tdv">${fK(y.debtPaydown)} <span class="pct-inline">${debtPct}%</span></td>
+        <td class="tdv pos">${fK(y.taxSavings)} <span class="pct-inline">${taxPct}%</span></td>
+        <td class="tdv">${fK(y.appreciation)} <span class="pct-inline">${appPct}%</span></td>
+        <td class="tdv pos"><strong>${fK(y.total)}</strong> <span class="pct-inline pct-strong">${totalPct}%</span></td>
+      </tr>
+    `;
+  }).join('');
+
+  // 5-year totals
+  const tot = r.returnStack.reduce((acc, y) => ({
+    cf: acc.cf + y.cashFlow,
+    debt: acc.debt + y.debtPaydown,
+    tax: acc.tax + y.taxSavings,
+    app: acc.app + y.appreciation,
+    total: acc.total + y.total
+  }), { cf: 0, debt: 0, tax: 0, app: 0, total: 0 });
+
+  // What % of 5-year return comes from each source — narrative insight
+  const totalAbs = Math.abs(tot.cf) + tot.debt + tot.tax + tot.app;
+  const cfShare = totalAbs > 0 ? (Math.max(tot.cf, 0) / totalAbs * 100).toFixed(0) : 0;
+  const debtShare = totalAbs > 0 ? (tot.debt / totalAbs * 100).toFixed(0) : 0;
+  const taxShare = totalAbs > 0 ? (tot.tax / totalAbs * 100).toFixed(0) : 0;
+  const appShare = totalAbs > 0 ? (tot.app / totalAbs * 100).toFixed(0) : 0;
+
+  // Narrative: which source dominates?
+  const shares = [
+    { name: 'tax savings', pct: +taxShare },
+    { name: 'appreciation', pct: +appShare },
+    { name: 'debt paydown', pct: +debtShare },
+    { name: 'cash flow', pct: +cfShare }
+  ].sort((a, b) => b.pct - a.pct);
+  const dominantNote = shares[0].pct >= 50
+    ? `<strong>${shares[0].pct}% of your 5-year return comes from ${shares[0].name}</strong> — this is a ${shares[0].name === 'tax savings' ? 'tax play' : shares[0].name === 'appreciation' ? 'speculative bet on price growth' : shares[0].name === 'cash flow' ? 'pure income property' : 'leverage play'}.`
+    : `Return is balanced across sources — ${shares[0].name} leads at ${shares[0].pct}%, then ${shares[1].name} at ${shares[1].pct}%. This is the profile Kevin would call sturdy.`;
+
+  // Conservative vs Aggressive comparison
+  const taxDelta = r.tax5Aggressive - r.tax5Conservative;
+  const cogSegValue = taxDelta > 0
+    ? `<strong>${f$(taxDelta)}</strong> over 5 years — that's the dollar value of the cost-seg study.`
+    : `roughly the same — cost-seg isn't doing much extra work here.`;
+
+  document.getElementById('kevinPanel').innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-num">07</span>
+        <h2 class="panel-title">Kevin's view — 5-year return stack</h2>
+        <span class="panel-sub">How your accountant breaks down real estate ROI</span>
+      </div>
+
+      <div class="kevin-intro">
+        <p class="kevin-quote">"Real estate makes money four ways. Most folks only see one."</p>
+        <p class="kevin-context">All percentages below are <strong>annual ROI</strong> on your total investment of <strong>${f$(r.totalInvestment)}</strong> (down payment ${f$(r.down)} + closing costs ${f$(s.closingCosts)}).</p>
+      </div>
+
+      <table class="proj-table return-stack">
+        <thead>
+          <tr>
+            <th>Year</th>
+            <th>Cash flow</th>
+            <th>Debt paydown</th>
+            <th>Tax savings</th>
+            <th>Appreciation</th>
+            <th>Total ROI</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+          <tr class="totals-row">
+            <td><strong>5-yr total</strong></td>
+            <td class="tdv ${tot.cf < 0 ? 'neg' : 'pos'}"><strong>${fK(tot.cf)}</strong></td>
+            <td class="tdv pos"><strong>${fK(tot.debt)}</strong></td>
+            <td class="tdv pos"><strong>${fK(tot.tax)}</strong></td>
+            <td class="tdv pos"><strong>${fK(tot.app)}</strong></td>
+            <td class="tdv pos"><strong>${fK(tot.total)}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="kevin-narrative">
+        <p>${dominantNote}</p>
+      </div>
+
+      <div class="kevin-comparison">
+        <p class="kc-title">Sound vs. Sassy — what's the cost-seg + bonus dep strategy worth?</p>
+        <div class="kc-grid">
+          <div class="kc-card kc-sound">
+            <p class="kc-label">Sound (Kevin's default)</p>
+            <p class="kc-sublabel">Straight-line 27.5-year only</p>
+            <p class="kc-value">${f$(r.tax5Conservative)}</p>
+            <p class="kc-sub">5-year tax savings</p>
+          </div>
+          <div class="kc-card kc-sassy">
+            <p class="kc-label">Sassy (your current setup)</p>
+            <p class="kc-sublabel">${Math.round(s.costSegPct*100)}% cost seg + ${Math.round(s.bonusDepRate*100)}% bonus dep</p>
+            <p class="kc-value">${f$(r.tax5Aggressive)}</p>
+            <p class="kc-sub">5-year tax savings</p>
+          </div>
+        </div>
+        <p class="kc-takeaway">The aggressive strategy unlocks ${cogSegValue}</p>
       </div>
     </div>
   `;
@@ -825,7 +1007,7 @@ function recalc() {
 // ----- EVENT WIRING -----
 function init() {
   // All inputs trigger recalc
-  ['address','listingUrl','price','propTax','mortRate','csCost','rental','extraOps','w2','ipo','fedRate','caRate'].forEach(id => {
+  ['address','listingUrl','price','propTax','mortRate','csCost','closingCosts','rental','extraOps','w2','ipo','fedRate','caRate'].forEach(id => {
     document.getElementById(id).addEventListener('input', recalc);
   });
   ['reps','psStrategy'].forEach(id => {
