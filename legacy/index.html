@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Darryl's Castle — Property Investment Analyzer</title>
+  <meta name="description" content="Tax-strategy weighted property investment analysis — depreciation modeling, 30-year wealth projections, and a clear buy/pass score." />
+  <meta name="theme-color" content="#0F766E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@1,6..72,400;1,6..72,500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230F766E'/%3E%3Cg fill='none' stroke='%23fff' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 78V40l12 7V33l12 7V27h8v13l12-7v14l12-7v38'/%3E%3C/g%3E%3C/svg%3E" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="grain"></div>
+
+  <!-- APP BAR ============================================ -->
+  <header class="appbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 20v-9l-3 1.5V8l-3 1.5V5h-3v2.5h-2V5H8v4.5L5 8v3.5L2 11v9"/><path d="M2 20h20"/><path d="M10 20v-4h4v4"/></svg>
+      </span>
+      <span class="brand-text">
+        <span class="brand-name">Darryl's Castle</span>
+        <span class="brand-sub">Property Investment Analyzer</span>
+      </span>
+    </div>
+    <div class="appbar-actions">
+      <button id="saveBtn" class="btn btn-primary" title="Save this analysis to your history">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+        <span class="btn-label">Save analysis</span>
+      </button>
+      <button id="exportBtn" class="btn btn-ghost" title="Export history as JSON">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+        <span class="btn-label">Export</span>
+      </button>
+      <input type="file" id="importInput" accept=".json" style="display:none" />
+      <button id="importBtn" class="btn btn-ghost" title="Import history from JSON">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+        <span class="btn-label">Import</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- HERO =============================================== -->
+  <section class="hero">
+    <div class="hero-inner">
+      <span class="hero-badge"><span class="dot"></span>2027 IPO year · tax-strategy weighted</span>
+      <h1 class="hero-title">Know if it's <span class="accent">worth buying</span><br>before you make the offer.</h1>
+      <p class="hero-tag">"A man's home is his castle. And if it's the right one, it's his tax shelter too."</p>
+      <p class="hero-byline">Paste any listing — we model depreciation, cash flow, and 30-year wealth, then score it out of 100.</p>
+
+      <div class="hero-fetch">
+        <div class="url-row">
+          <input type="url" id="listingUrl" placeholder="Paste a Redfin, Zillow or Realtor.com listing URL…" class="url-input" aria-label="Listing URL" />
+          <button id="fetchBtn" class="btn btn-primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <span class="btn-label">Fetch listing</span>
+          </button>
+        </div>
+        <div id="fetchStatus" class="fetch-status">Redfin works best · Zillow blocks scrapers · you can always enter details manually.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WORKSPACE ========================================== -->
+  <main>
+    <div class="workspace">
+
+      <!-- LEFT RAIL: INPUTS -->
+      <aside class="rail" aria-label="Investment assumptions">
+
+        <!-- PROPERTY -->
+        <section class="panel">
+          <div class="panel-header">
+            <span class="panel-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span>
+            <h2 class="panel-title">The property</h2>
+            <span class="panel-sub">Auto-filled where possible · override anything</span>
+          </div>
+
+          <label class="lbl" for="address">Address / nickname</label>
+          <input type="text" id="address" placeholder="e.g. 12345 Sunny Ln, Yucca Valley CA" class="inp" />
+
+          <label class="lbl" for="market">Market <span class="hint">drives defaults</span></label>
+          <select id="market" class="inp">
+            <option value="palm-springs">Palm Springs</option>
+            <option value="yucca-valley" selected>Yucca Valley / Joshua Tree</option>
+            <option value="borrego">Borrego Springs</option>
+            <option value="cathedral-city">Cathedral City</option>
+            <option value="palm-desert">Palm Desert / La Quinta</option>
+            <option value="big-bear">Big Bear</option>
+            <option value="idyllwild">Idyllwild</option>
+            <option value="other-desert">Other desert (CA)</option>
+            <option value="other-ca">Other California</option>
+          </select>
+
+          <label class="lbl" for="price">Purchase price ($)</label>
+          <input type="number" id="price" value="450000" class="inp" />
+
+          <label class="lbl" for="propTax">Annual property tax ($)</label>
+          <input type="number" id="propTax" value="5400" class="inp" />
+          <p class="hint-line">Defaults to 1.2% of price (CA Prop 13 baseline)</p>
+
+          <label class="lbl" for="landPct">Land allocation <span id="landVal" class="slider-out">20%</span></label>
+          <input type="range" id="landPct" min="5" max="50" value="20" step="1" class="rng" />
+          <p class="hint-line">Desert SFH typical: 15–22% · Mountain: 30–40% · Coastal: 40%+</p>
+        </section>
+
+        <!-- FINANCING -->
+        <section class="panel">
+          <div class="panel-header">
+            <span class="panel-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg></span>
+            <h2 class="panel-title">Financing &amp; depreciation</h2>
+            <span class="panel-sub">How the purchase is structured</span>
+          </div>
+
+          <label class="lbl" for="downPct">Down payment <span id="downVal" class="slider-out">25%</span></label>
+          <input type="range" id="downPct" min="20" max="40" value="25" step="5" class="rng" />
+
+          <label class="lbl" for="mortRate">Investment mortgage rate (%)</label>
+          <input type="number" id="mortRate" value="7.0" step="0.1" class="inp" />
+
+          <label class="lbl" for="costSeg">Cost segregation reclassification <span id="csVal" class="slider-out">25%</span></label>
+          <input type="range" id="costSeg" min="10" max="40" value="25" step="1" class="rng" />
+          <p class="hint-line">SFH typical: 20–35% · Condo: 15–22%</p>
+
+          <label class="lbl" for="bonusDep">Bonus depreciation rate <span id="bdVal" class="slider-out">100%</span></label>
+          <input type="range" id="bonusDep" min="0" max="100" value="100" step="20" class="rng" />
+          <p class="hint-line">100% under OBBBA (Jul 2025) for property acquired after Jan 19, 2025</p>
+
+          <label class="lbl" for="csCost">Cost-seg study cost ($)</label>
+          <input type="number" id="csCost" value="5000" class="inp" />
+
+          <label class="lbl" for="closingCosts">Closing costs ($) <span class="hint">~2% typical</span></label>
+          <input type="number" id="closingCosts" value="9000" class="inp" />
+        </section>
+
+        <!-- RENTAL -->
+        <section class="panel">
+          <div class="panel-header">
+            <span class="panel-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg></span>
+            <h2 class="panel-title">The rental play</h2>
+            <span class="panel-sub">Auto-estimated from market &amp; price</span>
+          </div>
+
+          <div class="rental-toggle" role="group" aria-label="Rental strategy">
+            <button class="toggle-btn active" data-mode="str" id="btnStr">Short-term (STR)</button>
+            <button class="toggle-btn" data-mode="ltr" id="btnLtr">Long-term (LTR)</button>
+          </div>
+
+          <label class="lbl" for="rental">Gross annual rental ($)</label>
+          <input type="number" id="rental" value="65000" class="inp" />
+          <p class="hint-line" id="rentHint">STR estimate based on market &amp; price</p>
+
+          <label class="lbl" for="vacancy">Vacancy / off-season <span id="vacVal" class="slider-out">15%</span></label>
+          <input type="range" id="vacancy" min="0" max="40" value="15" step="1" class="rng" />
+
+          <label class="lbl" for="expRatio">Operating expense ratio <span id="expVal" class="slider-out">35%</span></label>
+          <input type="range" id="expRatio" min="15" max="60" value="35" step="1" class="rng" />
+          <p class="hint-line" id="expHint">STR: 30–40% (cleaning, platform fees, mgmt)</p>
+
+          <label class="lbl" for="rentGrowth">Annual rental growth <span id="rgVal" class="slider-out">3%</span></label>
+          <input type="range" id="rentGrowth" min="1" max="6" value="3" step="0.5" class="rng" />
+
+          <label class="lbl" for="appRate">Annual appreciation <span id="apVal" class="slider-out">4%</span></label>
+          <input type="range" id="appRate" min="1" max="8" value="4" step="0.5" class="rng" />
+
+          <label class="lbl" for="extraOps">Insurance + utilities / yr ($) <span class="hint">extra ops</span></label>
+          <input type="number" id="extraOps" value="4800" class="inp" />
+        </section>
+
+        <!-- INCOME / TAX -->
+        <section class="panel">
+          <div class="panel-header">
+            <span class="panel-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></svg></span>
+            <h2 class="panel-title">2027 income &amp; tax</h2>
+            <span class="panel-sub">IPO year · REPS active · second property</span>
+          </div>
+
+          <label class="lbl" for="w2">W2 income ($)</label>
+          <input type="number" id="w2" value="250000" class="inp" />
+
+          <label class="lbl" for="ipo">IPO / equity proceeds — taxable in 2027 ($)</label>
+          <input type="number" id="ipo" value="500000" class="inp" />
+
+          <label class="lbl" for="fedRate">Federal marginal rate (%)</label>
+          <input type="number" id="fedRate" value="37" step="0.5" class="inp" />
+
+          <label class="lbl" for="caRate">CA state rate (%)</label>
+          <input type="number" id="caRate" value="13.3" step="0.1" class="inp" />
+
+          <label class="lbl" for="reps">REPS status (Jessi)</label>
+          <select id="reps" class="inp">
+            <option value="1" selected>Active — losses offset ordinary income</option>
+            <option value="0">Inactive — passive losses suspended</option>
+          </select>
+
+          <label class="lbl" for="psStrategy">Existing PS home strategy</label>
+          <select id="psStrategy" class="inp">
+            <option value="primary">Keep as primary residence</option>
+            <option value="rotate" selected>Rotate use between both properties</option>
+            <option value="rental">Convert PS to full-time rental</option>
+          </select>
+          <p class="hint-line">Affects personal-use day allocation under §280A</p>
+        </section>
+      </aside>
+
+      <!-- RIGHT: RESULTS -->
+      <div class="results">
+
+        <!-- VERDICT (rendered by app.js) -->
+        <section id="verdictPanel"></section>
+
+        <!-- KEY METRICS (rendered by app.js) -->
+        <section id="metricsPanel"></section>
+
+        <!-- LEGAL / RESTRICTIONS (rendered by app.js) -->
+        <section id="legalPanel" class="panel panel-flag"></section>
+
+        <!-- BREAKEVEN CHART -->
+        <section class="panel">
+          <div class="panel-header">
+            <span class="panel-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
+            <h2 class="panel-title">Cost vs. wealth — 30-year breakeven</h2>
+            <span class="panel-sub">When does this property pay for itself?</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="breakevenChart" role="img" aria-label="Breakeven chart showing cumulative cost vs cumulative wealth over 30 years"></canvas>
+          </div>
+          <div id="breakevenSummary" class="breakeven-summary"></div>
+        </section>
+
+        <!-- LONG-TERM TABLE (rendered by app.js) -->
+        <section id="projectionPanel"></section>
+
+        <!-- KEVIN'S 4-SOURCE RETURN STACK (rendered by app.js) -->
+        <section id="kevinPanel"></section>
+
+        <!-- DEPRECIATION DETAIL (rendered by app.js) -->
+        <section id="depPanel"></section>
+      </div>
+    </div>
+
+    <!-- POOL ROOM (history) — full width -->
+    <div class="poolroom-wrap">
+      <section class="panel">
+        <div class="panel-header">
+          <span class="panel-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg></span>
+          <h2 class="panel-title">The pool room</h2>
+          <span class="panel-sub">Properties you've analysed · trends · trophies</span>
+        </div>
+        <div id="historyTrend" class="history-trend"></div>
+        <div id="historyList" class="history-list"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p class="footer-quote">"Tell him he's dreamin'."</p>
+    <p class="footer-meta">Built for Sean &amp; Jessi · IPO 2027 · A Stella production</p>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
