@@ -4,6 +4,8 @@
 
 A property investment calculator built for the 2027 IPO year — tax-strategy weighted scoring, REPS-aware depreciation modeling, cost segregation analysis, and real estate listing auto-population via Cloudflare Worker.
 
+Built with **React + Vite + Tailwind CSS**. (The original zero-build vanilla version is preserved in [`legacy/`](legacy/) for reference.)
+
 ---
 
 ## What it does
@@ -36,10 +38,10 @@ The Worker handles the listing scraping. Free tier is 100k requests/day — way 
 
 ### Step 2: Configure the frontend
 
-1. Open `config.js`
-2. Change line 6:
+1. Open `src/lib/config.js`
+2. Change the `WORKER_URL` near the top:
    ```js
-   const WORKER_URL = 'https://darryls-castle-scraper.YOUR-SUBDOMAIN.workers.dev';
+   export const WORKER_URL = 'https://darryls-castle-scraper.YOUR-SUBDOMAIN.workers.dev';
    ```
    Paste your actual worker URL there.
 
@@ -55,12 +57,26 @@ const ALLOWED_ORIGINS = [
 
 Then redeploy the Worker. This stops random sites from using your scraper.
 
-### Step 4: Deploy to GitHub Pages
+### Step 4: Build & deploy
 
-1. Create a new GitHub repo: `darryls-castle` (or any name)
-2. Upload all 4 frontend files: `index.html`, `styles.css`, `config.js`, `app.js`
-3. Repo Settings → **Pages** → Source: `main` branch, root folder → Save
-4. Wait ~1 min, your site will be live at `https://YOUR-USERNAME.github.io/darryls-castle/`
+This is now a Vite app, so there's a build step. `vite.config.js` sets `base: './'` so the built site works from any path (GitHub Pages project pages, Netlify, S3 subfolders, etc.).
+
+```bash
+npm install
+npm run build      # outputs static files to dist/
+```
+
+Then deploy the contents of **`dist/`** to any static host:
+
+- **GitHub Pages:** push `dist/` to a `gh-pages` branch (e.g. via `npx gh-pages -d dist`) or a GitHub Action, then set **Settings → Pages** to that branch. (You can no longer just upload the source files — they need building first.)
+- **Netlify / Vercel / Cloudflare Pages:** set build command `npm run build` and publish directory `dist/`.
+
+### Local development
+
+```bash
+npm install
+npm run dev        # http://localhost:5173 with hot reload
+```
 
 ---
 
@@ -68,15 +84,30 @@ Then redeploy the Worker. This stops random sites from using your scraper.
 
 ```
 darryls-castle/
-├── index.html          # main UI structure
-├── styles.css          # The Castle aesthetic (cream/brown/olive)
-├── config.js           # market defaults, scoring tiers, Castle quotes
-├── app.js              # all calculations & rendering logic
-├── worker.js           # Cloudflare Worker for listing scraping
-└── README.md           # this file
+├── index.html              # Vite entry (mounts #root)
+├── package.json            # deps + scripts (dev / build / preview)
+├── vite.config.js          # base: './' for portable static hosting
+├── tailwind.config.js      # design tokens (teal/slate palette, fonts)
+├── src/
+│   ├── main.jsx            # React entry
+│   ├── App.jsx             # layout: app bar / hero / two-pane / pool room
+│   ├── index.css           # Tailwind + slider/gauge/table styles
+│   ├── lib/
+│   │   ├── config.js       # WORKER_URL, market defaults, scoring tiers, quotes
+│   │   ├── calc.js         # all financial calculations (ported verbatim)
+│   │   ├── state.js        # form <-> calc-input mapping, market defaults
+│   │   └── storage.js      # localStorage history + export/import
+│   ├── hooks/
+│   │   └── useAnalyzer.js   # state + live recalculation + actions
+│   └── components/         # AppBar, Hero, InputRail, Verdict, Metrics,
+│                           # LegalFlags, BreakevenChart, Projection,
+│                           # ReturnStack, Depreciation, PoolRoom, ui
+├── worker.js               # Cloudflare Worker for listing scraping (deploy separately)
+├── legacy/                 # original zero-build vanilla version (reference)
+└── README.md               # this file
 ```
 
-The Worker is deployed separately from the GitHub Pages site — they communicate via fetch.
+The Worker is deployed separately from the static site — they communicate via fetch.
 
 ---
 

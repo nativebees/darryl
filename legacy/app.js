@@ -375,6 +375,7 @@ function renderLegal(marketKey) {
 
 function renderVerdict(r) {
   const t = tierForScore(r.score.total);
+  const total = r.score.total;
   const panel = document.getElementById('verdictPanel');
   const compBars = r.score.components.map(c => `
     <div class="score-bar">
@@ -384,14 +385,39 @@ function renderVerdict(r) {
     </div>
   `).join('');
 
+  // Plain-language verdict label (professional summary alongside the quote)
+  const badge = total >= 90 ? 'Clear winner'
+    : total >= 80 ? 'Excellent buy'
+    : total >= 70 ? 'Solid buy'
+    : total >= 60 ? 'Reasonable'
+    : total >= 50 ? 'Marginal'
+    : total >= 40 ? 'Overpriced'
+    : total >= 25 ? 'Bad deal'
+    : 'Hard pass';
+
+  // Donut gauge geometry
+  const RADIUS = 58;
+  const CIRC = 2 * Math.PI * RADIUS;
+  const dashoffset = CIRC * (1 - Math.max(0, Math.min(100, total)) / 100);
+
   panel.innerHTML = `
     <div class="verdict verdict-tier-${t.tier}">
       <div class="verdict-row">
         <div class="verdict-score-block">
-          <div><span class="verdict-score">${r.score.total}</span><span class="verdict-score-max">/100</span></div>
-          <div class="verdict-score-label">Castle Score</div>
+          <div class="score-gauge">
+            <svg viewBox="0 0 132 132" aria-hidden="true">
+              <circle class="track" cx="66" cy="66" r="${RADIUS}" fill="none" stroke-width="11" />
+              <circle class="fill" cx="66" cy="66" r="${RADIUS}" fill="none" stroke-width="11"
+                stroke-dasharray="${CIRC.toFixed(2)}" stroke-dashoffset="${dashoffset.toFixed(2)}" />
+            </svg>
+            <div class="score-gauge-center">
+              <div><span class="verdict-score">${total}</span><span class="verdict-score-max">/100</span></div>
+              <div class="verdict-score-label">Castle Score</div>
+            </div>
+          </div>
         </div>
         <div class="verdict-text">
+          <span class="verdict-badge"><span class="dot"></span>${badge}</span>
           <p class="verdict-quote">${t.quote}</p>
           <p class="verdict-headline">${t.headline}</p>
           <p class="verdict-rationale">${t.rationale}</p>
@@ -402,45 +428,44 @@ function renderVerdict(r) {
   `;
 }
 
+// Inline Lucide-style icons for the metric cards (no emoji, scale cleanly, theme via currentColor)
+const METRIC_ICONS = {
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>',
+  banknote: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>',
+  scale: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>',
+  trending: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>',
+  percent: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" x2="5" y1="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>',
+  gauge: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>'
+};
+// Directional trend cue — shape conveys meaning without relying on colour alone
+const TREND_GLYPH = {
+  pos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="19" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>',
+  neg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" x2="19" y1="12" y2="12"/></svg>'
+};
+
 function renderMetrics(r) {
   const panel = document.getElementById('metricsPanel');
   const dscrOk = r.dscr >= 1.25;
   const dscrClass = r.dscr >= 1.25 ? 'pos' : (r.dscr >= 1.0 ? 'warn' : 'neg');
   const capClass = r.capRate >= 0.07 ? 'pos' : (r.capRate >= 0.04 ? 'warn' : 'neg');
-  panel.innerHTML = `
-    <div class="metrics">
+
+  const cards = [
+    { label: 'Year 1 tax savings', cls: 'pos', value: f$(r.totalTax), sub: `Fed ${f$(r.fedSav)} + CA ${f$(r.caSav)}`, icon: 'shield' },
+    { label: 'Year 1 cash flow', cls: r.cashFlow < 0 ? 'neg' : 'pos', value: f$(r.cashFlow), sub: `${f$(r.noi)} NOI − ${f$(r.y1.annualPay)} debt svc`, icon: 'banknote' },
+    { label: 'Net Year 1 position', cls: r.net1 < 0 ? 'neg' : 'pos', value: f$(r.net1), sub: 'After cost-seg study cost', icon: 'scale' },
+    { label: 'Year 1 total ROI', cls: r.totalROI1 > 0.1 ? 'pos' : r.totalROI1 > 0 ? 'warn' : 'neg', value: fPct(r.totalROI1), sub: 'Incl. appreciation', icon: 'trending' },
+    { label: 'Cap Rate', hint: "Kevin's view", cls: capClass, value: fPct(r.capRate, 2), sub: 'NOI ÷ price · 7%+ strong, 4%+ ok', icon: 'percent' },
+    { label: 'DSCR', hint: 'Loan test', cls: dscrClass, value: r.dscr.toFixed(2) + 'x', sub: dscrOk ? '✓ Qualifies for commercial loan' : '✗ Below 1.25 lender threshold', icon: 'gauge' }
+  ];
+
+  panel.innerHTML = `<div class="metrics">` + cards.map(c => `
       <div class="metric">
-        <p class="metric-label">Year 1 tax savings</p>
-        <p class="metric-value pos">${f$(r.totalTax)}</p>
-        <p class="metric-sub">Fed ${f$(r.fedSav)} + CA ${f$(r.caSav)}</p>
-      </div>
-      <div class="metric">
-        <p class="metric-label">Year 1 cash flow</p>
-        <p class="metric-value ${r.cashFlow < 0 ? 'neg' : 'pos'}">${f$(r.cashFlow)}</p>
-        <p class="metric-sub">${f$(r.noi)} NOI − ${f$(r.y1.annualPay)} debt svc</p>
-      </div>
-      <div class="metric">
-        <p class="metric-label">Net Year 1 position</p>
-        <p class="metric-value ${r.net1 < 0 ? 'neg' : 'pos'}">${f$(r.net1)}</p>
-        <p class="metric-sub">After cost-seg study cost</p>
-      </div>
-      <div class="metric">
-        <p class="metric-label">Year 1 total ROI</p>
-        <p class="metric-value ${r.totalROI1 > 0.1 ? 'pos' : r.totalROI1 > 0 ? 'warn' : 'neg'}">${fPct(r.totalROI1)}</p>
-        <p class="metric-sub">Incl. appreciation</p>
-      </div>
-      <div class="metric">
-        <p class="metric-label">Cap Rate <span class="hint" style="margin-left:0">Kevin's view</span></p>
-        <p class="metric-value ${capClass}">${fPct(r.capRate, 2)}</p>
-        <p class="metric-sub">NOI ÷ price · 7%+ strong, 4%+ ok</p>
-      </div>
-      <div class="metric">
-        <p class="metric-label">DSCR <span class="hint" style="margin-left:0">Loan test</span></p>
-        <p class="metric-value ${dscrClass}">${r.dscr.toFixed(2)}x</p>
-        <p class="metric-sub">${dscrOk ? '✓ Qualifies for commercial loan' : '✗ Below 1.25 lender threshold'}</p>
-      </div>
-    </div>
-  `;
+        <span class="metric-ico" aria-hidden="true">${METRIC_ICONS[c.icon] || ''}</span>
+        <p class="metric-label">${c.label}${c.hint ? ` <span class="hint" style="margin-left:0">${c.hint}</span>` : ''}</p>
+        <p class="metric-value ${c.cls}"><span class="metric-trend ${c.cls}" aria-hidden="true">${TREND_GLYPH[c.cls] || ''}</span>${c.value}</p>
+        <p class="metric-sub">${c.sub}</p>
+      </div>`).join('') + `</div>`;
 }
 
 function renderChart(s, projection) {
@@ -465,8 +490,8 @@ function renderChart(s, projection) {
         {
           label: 'Cumulative wealth created',
           data: wealthLine,
-          borderColor: '#5C7A1E',
-          backgroundColor: 'rgba(92, 122, 30, 0.10)',
+          borderColor: '#0F766E',
+          backgroundColor: 'rgba(15, 118, 110, 0.10)',
           fill: true,
           tension: 0.3,
           borderWidth: 2.5,
@@ -476,7 +501,7 @@ function renderChart(s, projection) {
         {
           label: 'Property value gain',
           data: propValueLine,
-          borderColor: '#5A8B9E',
+          borderColor: '#0369A1',
           borderDash: [4, 4],
           borderWidth: 1.5,
           fill: false,
@@ -487,7 +512,7 @@ function renderChart(s, projection) {
         {
           label: 'Cumulative out-of-pocket',
           data: costLine,
-          borderColor: '#A8392B',
+          borderColor: '#DC2626',
           borderWidth: 1.5,
           fill: false,
           tension: 0.1,
@@ -504,16 +529,19 @@ function renderChart(s, projection) {
         legend: {
           position: 'bottom',
           labels: {
-            font: { family: "'DM Sans', sans-serif", size: 12 },
-            color: '#5C4633',
+            font: { family: "'IBM Plex Sans', sans-serif", size: 12 },
+            color: '#475569',
             usePointStyle: true,
+            pointStyle: 'circle',
             padding: 16
           }
         },
         tooltip: {
-          backgroundColor: '#2E1F12',
-          titleFont: { family: "'Bree Serif', serif", size: 13 },
-          bodyFont: { family: "'Space Mono', monospace", size: 11 },
+          backgroundColor: '#0F172A',
+          padding: 12,
+          cornerRadius: 8,
+          titleFont: { family: "'IBM Plex Sans', sans-serif", size: 13, weight: '600' },
+          bodyFont: { family: "'IBM Plex Mono', monospace", size: 11 },
           callbacks: {
             label: (ctx) => `${ctx.dataset.label}: ${f$(ctx.raw)}`
           }
@@ -521,18 +549,18 @@ function renderChart(s, projection) {
       },
       scales: {
         x: {
-          grid: { color: 'rgba(212, 196, 168, 0.3)' },
+          grid: { color: 'rgba(148, 163, 184, 0.22)' },
           ticks: {
-            font: { family: "'Space Mono', monospace", size: 10 },
-            color: '#8B7560',
+            font: { family: "'IBM Plex Mono', monospace", size: 10 },
+            color: '#64748B',
             maxTicksLimit: 10
           }
         },
         y: {
-          grid: { color: 'rgba(212, 196, 168, 0.3)' },
+          grid: { color: 'rgba(148, 163, 184, 0.22)' },
           ticks: {
-            font: { family: "'Space Mono', monospace", size: 10 },
-            color: '#8B7560',
+            font: { family: "'IBM Plex Mono', monospace", size: 10 },
+            color: '#64748B',
             callback: (v) => fK(v)
           }
         }
@@ -580,6 +608,7 @@ function renderProjection(s, r) {
         <h2 class="panel-title">Long-term wealth projection</h2>
         <span class="panel-sub">${fPct(s.appRate)} appreciation · ${fPct(s.rentGrowth)} rental growth · REPS active</span>
       </div>
+      <div class="table-scroll">
       <table class="proj-table">
         <thead>
           <tr>
@@ -589,6 +618,7 @@ function renderProjection(s, r) {
         </thead>
         <tbody>${rows}</tbody>
       </table>
+      </div>
       <div style="margin-top: 14px; padding: 12px 14px; background: var(--warn-bg); border-left: 3px solid var(--warn); font-size: 12px; color: var(--ink-2); line-height: 1.5;">
         <strong>Recapture alert:</strong> ~${f$(r.recaptureLiability)} of accumulated depreciation will be subject to §1250 unrecaptured gain tax (25% federal) at sale. A 1031 exchange defers this indefinitely. The savings now are real — the recapture later is a planning problem, not a deal-killer.
       </div>
@@ -662,6 +692,7 @@ function renderReturnStack(s, r) {
         <p class="kevin-context">All percentages below are <strong>annual ROI</strong> on your total investment of <strong>${f$(r.totalInvestment)}</strong> (down payment ${f$(r.down)} + closing costs ${f$(s.closingCosts)}).</p>
       </div>
 
+      <div class="table-scroll">
       <table class="proj-table return-stack">
         <thead>
           <tr>
@@ -685,6 +716,7 @@ function renderReturnStack(s, r) {
           </tr>
         </tbody>
       </table>
+      </div>
 
       <div class="kevin-narrative">
         <p>${dominantNote}</p>
@@ -927,12 +959,14 @@ function renderTrendChart(arr) {
       datasets: [{
         label: 'Score',
         data: arr.map(e => e.score),
-        borderColor: '#B85C3A',
-        backgroundColor: 'rgba(184, 92, 58, 0.15)',
+        borderColor: '#0F766E',
+        backgroundColor: 'rgba(15, 118, 110, 0.12)',
         borderWidth: 2,
         tension: 0.35,
         fill: true,
-        pointBackgroundColor: '#B85C3A',
+        pointBackgroundColor: '#0F766E',
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 1.5,
         pointRadius: 4
       }]
     },
@@ -941,8 +975,8 @@ function renderTrendChart(arr) {
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        y: { min: 0, max: 100, ticks: { font: { family: "'Space Mono', monospace", size: 10 }, color: '#8B7560' }, grid: { color: 'rgba(212,196,168,0.3)' } },
-        x: { ticks: { font: { family: "'Space Mono', monospace", size: 10 }, color: '#8B7560' }, grid: { display: false } }
+        y: { min: 0, max: 100, ticks: { font: { family: "'IBM Plex Mono', monospace", size: 10 }, color: '#64748B' }, grid: { color: 'rgba(148, 163, 184, 0.22)' } },
+        x: { ticks: { font: { family: "'IBM Plex Mono', monospace", size: 10 }, color: '#64748B' }, grid: { display: false } }
       }
     }
   });
@@ -986,15 +1020,25 @@ function escapeHtml(s) {
   }[m]));
 }
 
+// Paint a slider's filled portion by setting the --pct custom property
+function setSliderFill(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const min = +el.min || 0;
+  const max = +el.max || 100;
+  const pct = max > min ? ((+el.value - min) / (max - min)) * 100 : 0;
+  el.style.setProperty('--pct', pct.toFixed(1) + '%');
+}
+
 function refreshSliderLabels() {
-  document.getElementById('landVal').textContent = document.getElementById('landPct').value + '%';
-  document.getElementById('downVal').textContent = document.getElementById('downPct').value + '%';
-  document.getElementById('csVal').textContent = document.getElementById('costSeg').value + '%';
-  document.getElementById('bdVal').textContent = document.getElementById('bonusDep').value + '%';
-  document.getElementById('vacVal').textContent = document.getElementById('vacancy').value + '%';
-  document.getElementById('expVal').textContent = document.getElementById('expRatio').value + '%';
-  document.getElementById('rgVal').textContent = document.getElementById('rentGrowth').value + '%';
-  document.getElementById('apVal').textContent = document.getElementById('appRate').value + '%';
+  const sliders = {
+    landVal: 'landPct', downVal: 'downPct', csVal: 'costSeg', bdVal: 'bonusDep',
+    vacVal: 'vacancy', expVal: 'expRatio', rgVal: 'rentGrowth', apVal: 'appRate'
+  };
+  Object.entries(sliders).forEach(([labelId, sliderId]) => {
+    document.getElementById(labelId).textContent = document.getElementById(sliderId).value + '%';
+    setSliderFill(sliderId);
+  });
 }
 
 // ----- MAIN RECALC -----

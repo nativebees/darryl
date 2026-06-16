@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #0F766E;
+  --border: #E2E8F0;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background-color: #EEF2F6;
+  background-image:
+    radial-gradient(1100px 480px at 88% -8%, rgba(20, 184, 166, 0.10), transparent 60%),
+    radial-gradient(900px 420px at -5% 0%, rgba(3, 105, 161, 0.07), transparent 55%);
+  background-attachment: fixed;
+  color: #0F172A;
+  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection { background: #CCFBF1; color: #0B5C55; }
+
+/* Tabular figures helper for data/numbers */
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ===== RANGE SLIDER ===== filled track via inline --pct ===== */
+.rng {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  height: 6px;
+  border-radius: 100px;
+  outline: none;
+  cursor: pointer;
+  background: var(--border);
+  background-image: linear-gradient(to right, var(--primary) 0%, var(--primary) var(--pct, 50%), var(--border) var(--pct, 50%), var(--border) 100%);
+}
+.rng::-webkit-slider-runnable-track { height: 6px; border-radius: 100px; background: transparent; }
+.rng::-moz-range-track { height: 6px; border-radius: 100px; background: var(--border); }
+.rng::-moz-range-progress { height: 6px; border-radius: 100px; background: var(--primary); }
+.rng::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -7px;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid var(--primary);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.rng::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: #fff; border-radius: 50%; cursor: pointer;
+  border: 2px solid var(--primary);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+.rng:hover::-webkit-slider-thumb { transform: scale(1.08); }
+.rng:active::-webkit-slider-thumb { transform: scale(1.14); box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.22); }
+.rng:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.22); }
+
+/* ===== SCORE GAUGE ===== */
+.score-gauge svg { transform: rotate(-90deg); }
+.score-gauge .gauge-fill {
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Thin scrollbar for the sticky input rail */
+.rail-scroll { scrollbar-width: thin; scrollbar-color: #CBD5E1 transparent; }
+.rail-scroll::-webkit-scrollbar { width: 8px; }
+.rail-scroll::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 100px; }
+.rail-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* ===== DATA TABLES ===== */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.dtable { width: 100%; min-width: 540px; border-collapse: collapse; font-size: 13px; }
+.dtable th {
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.06em; color: #5B6573; font-weight: 600; padding: 9px 10px;
+  text-align: right; border-bottom: 1px solid #CBD5E1; white-space: nowrap;
+}
+.dtable th:first-child { text-align: left; }
+.dtable td {
+  padding: 10px; border-bottom: 1px solid #E2E8F0; text-align: right;
+  font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #0F172A;
+  font-variant-numeric: tabular-nums;
+}
+.dtable td:first-child { text-align: left; font-family: 'IBM Plex Sans', sans-serif; color: #475569; font-weight: 500; }
+.dtable tbody tr:nth-child(even) td { background: #F8FAFC; }
+.dtable tbody tr:hover td { background: #F0FDFA; }
+.dtable .totals-row td { border-top: 2px solid #CBD5E1; font-weight: 700; background: #EDF2F7 !important; }
+.dtable tr:last-child td { border-bottom: none; }
+.dtable td.pos { color: #059669; }
+.dtable td.neg { color: #DC2626; }
+.dtable .pct-inline { color: #94A3B8; font-size: 10.5px; }
+.dtable .pct-strong { color: #0F766E; font-weight: 600; }
+
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
